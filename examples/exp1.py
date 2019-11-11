@@ -23,4 +23,5 @@ uart_debugger = UartDebugger(listener, port="COM4", baudrate=19200)
 uart_debugger.start()
 
 # 主线程等待
-uart_debugger.join()
+while True:
+    pass

@@ -6,6 +6,7 @@ import struct
 import pdb
 from collections import defaultdict
 from threading import Thread
+from .parser import Parser
 
 
 class TypeHandler:
@@ -73,46 +74,34 @@ class UartDebugger(Thread):
         self.port = port
         self.baudrate = baudrate
 
+    def handle(self, debug_type, debug_data):
+
+        if not self.listener.have_type(debug_type): 
+            # 未知类型
+            return
+            
+        #print("Type:", f"{debug_type}({self.listener.get_type_name(debug_type)})")
+        handler = self.listener.get_handler(debug_type)
+        if not handler:
+            # 找不到指定的handler
+            print("Warning: 找不到handler")
+
+        # pdb.set_trace()
+        unpack_str = self.listener.get_unpack_str(debug_type)
+        if unpack_str:
+            handler(struct.unpack(unpack_str, debug_data))
+        else:
+            handler(debug_data)
+
     def run(self):
         with serial.Serial(port=self.port, baudrate=self.baudrate, timeout=.5) as ser:
+            parser = Parser(ser)
             while True:
-                debug_pre, debug_head = None, None
-                while debug_pre == None:
-                    debug_pre = ser.read(1)
-                if not debug_pre or debug_pre[0] != 0x11:
-                    continue
+                parser.eat_all()
+                for pack in parser.parse():
+                    self.handle(pack[0], pack[1])
 
-                while debug_head == None:
-                    debug_head = ser.read(1)
-                if not debug_head:
-                    continue
-                # convert into two number
-                # pdb.set_trace()
-                debug_type, debug_data_len = map(lambda x: int(x, 16), debug_head.hex())
-                # read debug data area
-                debug_data = None
-                debug_data = ser.read(debug_data_len)
                 
-                if not self.listener.have_type(debug_type): 
-                    # 未知类型
-                    continue
-                    
-                print("Type:", f"{debug_type}({self.listener.get_type_name(debug_type)})")
-                handler = self.listener.get_handler(debug_type)
-                if not handler:
-                    # 找不到指定的handler
-                    print("Warning: 找不到handler")
-
-                if len(debug_data) != debug_data_len:
-                    print("Error: 包解析错误", list(map(lambda x: hex(x)[2:].upper(), debug_data)))
-                else:
-                    # pdb.set_trace()
-                    unpack_str = self.listener.get_unpack_str(debug_type)
-                    if unpack_str:
-                        handler(struct.unpack(unpack_str, debug_data))
-                    else:
-                        handler(debug_data)
-                print()
 
 def list_ports():
     from winreg import OpenKey, EnumValue, QueryInfoKey, HKEY_LOCAL_MACHINE

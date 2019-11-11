@@ -41,7 +41,7 @@ void uart_debug_send(unsigned int type, char arg_types[], ...)
     c = arg_types;
 
     sent_array = (unsigned char*)malloc(size_of_args + 1);
-#if dUART_DEBUG_DEBUG_MODE
+#if UART_DEBUG_DEBUG_MODE
     memset(sent_array, 0, size_of_args + 1);
 #endif
     if(!sent_array)
